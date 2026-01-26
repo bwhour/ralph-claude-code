@@ -283,3 +283,26 @@ Follow .ralph/@fix_plan.md and choose the most important item to implement next.
 Use your judgment to prioritize what will have the biggest impact on project progress.
 
 Remember: Quality over speed. Build it right the first time. Know when you're done.
+
+## Development Rules (from Superpowers)
+
+### TDD Enforcement
+1. Write failing test FIRST
+2. Run test, confirm it fails (RED)
+3. Write minimal code to pass
+4. Run test, confirm it passes (GREEN)
+5. Refactor if needed
+6. NEVER write implementation before test
+
+### Anti-Rationalization
+| If you think... | Reality |
+|-----------------|---------|
+| "This is simple, skip tests" | Simple code needs tests too |
+| "Emergency, no time for TDD" | TDD is FASTER |
+| "Just one quick fix first" | First fix sets the pattern |
+| "I'll add tests later" | Later never comes |
+
+### Red Flags (STOP and reconsider)
+- "Quick fix for now, investigate later"
+- "I don't fully understand but this might work"
+- "One more try" (after 2+ failures)

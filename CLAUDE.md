@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is the Ralph for Claude Code repository - an autonomous AI development loop system that enables continuous development cycles with intelligent exit detection and rate limiting.
 
-**Version**: v0.11.0 | **Tests**: 396 passing (100% pass rate) | **CI/CD**: GitHub Actions
+**Version**: v0.11.1 | **Tests**: 424 passing (100% pass rate) | **CI/CD**: GitHub Actions
 
 ## Core Architecture
 
@@ -167,7 +167,7 @@ tmux attach -t <session-name>
 
 ### Running Tests
 ```bash
-# Run all tests (396 tests)
+# Run all tests (420 tests)
 npm test
 
 # Run specific test suites
@@ -188,8 +188,8 @@ bats tests/unit/test_ralph_enable.bats
 The loop is controlled by several key files and environment variables within the `.ralph/` subfolder:
 
 - **.ralph/PROMPT.md** - Main prompt file that drives each loop iteration
-- **.ralph/@fix_plan.md** - Prioritized task list that Ralph follows
-- **.ralph/@AGENT.md** - Build and run instructions maintained by Ralph
+- **.ralph/fix_plan.md** - Prioritized task list that Ralph follows
+- **.ralph/AGENT.md** - Build and run instructions maintained by Ralph
 - **.ralph/status.json** - Real-time status tracking (JSON format)
 - **.ralph/logs/** - Execution logs for each loop iteration
 
@@ -218,7 +218,7 @@ CLAUDE_MIN_VERSION="2.0.76"           # Minimum Claude CLI version
 **Loop Context:**
 Each loop iteration injects context via `build_loop_context()`:
 - Current loop number
-- Remaining tasks from @fix_plan.md
+- Remaining tasks from fix_plan.md
 - Circuit breaker state (if not CLOSED)
 - Previous loop work summary
 
@@ -239,7 +239,7 @@ The `EXIT_SIGNAL` value is read from `.ralph/.response_analysis` (at `.analysis.
 **Other exit conditions (checked before completion indicators):**
 - Multiple consecutive "done" signals from Claude Code (`done_signals >= 2`)
 - Too many test-only loops indicating feature completeness (`test_loops >= 3`)
-- All items in .ralph/@fix_plan.md marked as completed
+- All items in .ralph/fix_plan.md marked as completed
 
 **Example behavior when EXIT_SIGNAL is false:**
 ```
@@ -284,8 +284,8 @@ Each project created with `./setup.sh` follows this structure with a `.ralph/` s
 project-name/
 ├── .ralph/                # Ralph configuration and state (hidden folder)
 │   ├── PROMPT.md          # Main development instructions
-│   ├── @fix_plan.md       # Prioritized TODO list
-│   ├── @AGENT.md          # Build/run instructions
+│   ├── fix_plan.md       # Prioritized TODO list
+│   ├── AGENT.md          # Build/run instructions
 │   ├── specs/             # Project specifications
 │   ├── examples/          # Usage examples
 │   ├── logs/              # Loop execution logs
@@ -304,7 +304,7 @@ Templates in `templates/` provide starting points for new projects:
 
 ## File Naming Conventions
 
-- Files prefixed with `@` (e.g., `.ralph/@fix_plan.md`) are Ralph-specific control files
+- Ralph control files (`fix_plan.md`, `AGENT.md`, `PROMPT.md`) reside in the `.ralph/` directory
 - Hidden files within `.ralph/` (e.g., `.ralph/.call_count`, `.ralph/.exit_signals`) track loop state
 - `.ralph/logs/` contains timestamped execution logs
 - `.ralph/docs/generated/` for Ralph-created documentation
@@ -345,7 +345,7 @@ Ralph uses multiple mechanisms to detect when to exit:
 - `MAX_CONSECUTIVE_TEST_LOOPS=3` - Exit if too many test-only iterations
 - `MAX_CONSECUTIVE_DONE_SIGNALS=2` - Exit on repeated completion signals
 - `TEST_PERCENTAGE_THRESHOLD=30%` - Flag if testing dominates recent loops
-- Completion detection via .ralph/@fix_plan.md checklist items
+- Completion detection via .ralph/fix_plan.md checklist items
 
 ### Completion Indicators with EXIT_SIGNAL Gate
 
@@ -402,7 +402,7 @@ Ralph uses advanced error detection with two-stage filtering to eliminate false 
 
 ## Test Suite
 
-### Test Files (396 tests total)
+### Test Files (420 tests total)
 
 | File | Tests | Description |
 |------|-------|-------------|
@@ -410,7 +410,7 @@ Ralph uses advanced error detection with two-stage filtering to eliminate false 
 | `test_cli_modern.bats` | 29 | Modern CLI commands (Phase 1.1) + build_claude_command fix |
 | `test_json_parsing.bats` | 45 | JSON output format parsing + Claude CLI format + session management + array format |
 | `test_session_continuity.bats` | 28 | Session lifecycle management + circuit breaker integration + issue #91 fix |
-| `test_exit_detection.bats` | 20 | Exit signal detection |
+| `test_exit_detection.bats` | 35 | Exit signal detection + EXIT_SIGNAL-based completion indicators |
 | `test_rate_limiting.bats` | 15 | Rate limiting behavior |
 | `test_loop_execution.bats` | 20 | Integration tests |
 | `test_edge_cases.bats` | 20 | Edge case handling |
@@ -420,6 +420,7 @@ Ralph uses advanced error detection with two-stage filtering to eliminate false 
 | `test_enable_core.bats` | 30 | Enable core library (idempotency, project detection, template generation) |
 | `test_task_sources.bats` | 23 | Task sources (beads, GitHub, PRD extraction, normalization) |
 | `test_ralph_enable.bats` | 22 | Ralph enable integration tests (wizard, CI version, JSON output) |
+| `test_wizard_utils.bats` | 20 | Wizard utility functions (stdout/stderr separation, prompt functions) |
 
 ### Running Tests
 ```bash
@@ -434,6 +435,20 @@ bats tests/unit/test_cli_parsing.bats
 ```
 
 ## Recent Improvements
+
+### Completion Indicators Fix (v0.11.1)
+- Fixed premature exit after exactly 5 loops in JSON output mode
+- Root cause: `update_exit_signals()` used confidence threshold (≥60) to populate `completion_indicators`
+  - JSON mode always has confidence ≥70 due to deterministic scoring (+50 for JSON format, +20 for result field)
+  - This caused every successful JSON response to increment `completion_indicators`
+  - After 5 loops, safety circuit breaker triggered even when Claude set `EXIT_SIGNAL: false`
+- Fix: Replaced confidence-based heuristic with explicit EXIT_SIGNAL checking
+  - `completion_indicators` now only accumulates when `exit_signal == "true"`
+  - Aligns with documented behavior in CLAUDE.md and README.md
+  - Confidence scoring retained for analysis/logging purposes
+- Updated safety circuit breaker documentation in `ralph_loop.sh` to reflect new behavior
+- Added 4 new TDD tests (Tests 32-35) for `update_exit_signals()` behavior
+- Test count: 424 (up from 420)
 
 ### Ralph Enable Command (v0.11.0)
 - Added `ralph-enable` interactive wizard for enabling Ralph in existing projects
@@ -541,7 +556,7 @@ bats tests/unit/test_cli_parsing.bats
 - Added 22 comprehensive tests for `ralph_import.sh` PRD conversion script
 - Tests cover: file format support (.md, .txt, .json), output file creation, project naming
 - Mock infrastructure for `ralph-setup` and Claude Code CLI isolation
-- Output file validation: PROMPT.md, @fix_plan.md, specs/requirements.md creation
+- Output file validation: PROMPT.md, fix_plan.md, specs/requirements.md creation
 - Project naming tests: custom names, auto-detection from filename, path handling
 - Error handling tests: missing source file, missing ralph-setup, conversion failures
 - Help and usage tests: --help flag, no arguments behavior
@@ -553,7 +568,7 @@ bats tests/unit/test_cli_parsing.bats
 ### Project Setup Tests (v0.9.4)
 - Added 36 comprehensive tests for `setup.sh` project initialization script
 - Tests cover: directory creation, subdirectory structure, template copying, git initialization
-- Template copying verification for PROMPT.md, @fix_plan.md, @AGENT.md
+- Template copying verification for PROMPT.md, fix_plan.md, AGENT.md
 - Git repository validation: .git exists, valid repo, initial commit, correct message
 - README.md creation and content verification
 - Custom and default project name handling
@@ -682,8 +697,8 @@ Before moving to the next feature, ALL changes must be:
    - Create pull requests for all significant changes
 
 4. **Ralph Integration**:
-   - Update .ralph/@fix_plan.md with new tasks before starting work
-   - Mark items complete in .ralph/@fix_plan.md upon completion
+   - Update .ralph/fix_plan.md with new tasks before starting work
+   - Mark items complete in .ralph/fix_plan.md upon completion
    - Update .ralph/PROMPT.md if Ralph's behavior needs modification
    - Test Ralph loop with new features before completion
 
@@ -711,7 +726,7 @@ Before moving to the next feature, ALL changes must be:
 4. **Template Maintenance**:
    - Update template files when new patterns are introduced
    - Keep PROMPT.md template current with best practices
-   - Update @AGENT.md template with new build patterns
+   - Update AGENT.md template with new build patterns
    - Document new Ralph configuration options
 
 5. **CLAUDE.md Maintenance**:
@@ -729,7 +744,7 @@ Before marking ANY feature as complete, verify:
 - [ ] All changes committed with conventional commit messages
 - [ ] All commits pushed to remote repository
 - [ ] CI/CD pipeline passes
-- [ ] .ralph/@fix_plan.md task marked as complete
+- [ ] .ralph/fix_plan.md task marked as complete
 - [ ] Implementation documentation updated
 - [ ] Inline code comments updated or added
 - [ ] CLAUDE.md updated (if new patterns introduced)
@@ -742,7 +757,7 @@ Before marking ANY feature as complete, verify:
 
 These standards ensure:
 - **Quality**: Thorough testing prevents regressions in Ralph's autonomous behavior
-- **Traceability**: Git commits and @fix_plan.md provide clear history of changes
+- **Traceability**: Git commits and fix_plan.md provide clear history of changes
 - **Maintainability**: Current documentation reduces onboarding time and prevents knowledge loss
 - **Collaboration**: Pushed changes enable team visibility and code review
 - **Reliability**: Consistent quality gates maintain Ralph loop stability

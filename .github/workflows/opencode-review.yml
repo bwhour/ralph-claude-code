@@ -1,6 +1,9 @@
 name: OpenCode PR Review
 
 on:
+  # Using pull_request (not pull_request_target) because the OpenCode action
+  # doesn't support pull_request_target. This means it only works for PRs from
+  # branches in this repo (not forks). Fork PRs are reviewed by claude-code-review.yml instead.
   pull_request:
     types: [opened, synchronize]
     # Skip review for documentation and config-only changes
@@ -10,6 +13,11 @@ on:
       - ".github/workflows/opencode-review.yml"
       - ".gitignore"
       - "pyproject.toml"
+
+# Cancel in-progress runs for the same PR to avoid duplicate reviews
+concurrency:
+  group: opencode-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   opencode-review:

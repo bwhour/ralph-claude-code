@@ -1,7 +1,10 @@
 name: Claude Code Review
 
 on:
-  pull_request:
+  # Using pull_request_target to run with base repo permissions (access to secrets)
+  # This allows the workflow to run for fork PRs after maintainer approval
+  # Security: This workflow only READS PR code for review, it does NOT execute it
+  pull_request_target:
     types: [opened, synchronize]
     # Skip review for documentation and config-only changes
     paths-ignore:
@@ -10,12 +13,17 @@ on:
       - ".gitignore"
       - "pyproject.toml"
 
+# Cancel in-progress runs for the same PR to avoid duplicate reviews
+concurrency:
+  group: claude-code-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   claude-review:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write  # Needed to post review comments
       issues: read
       id-token: write
 
@@ -27,13 +35,15 @@ jobs:
           deletions=${{ github.event.pull_request.deletions }}
           total=$((additions + deletions))
           echo "total=$total" >> $GITHUB_OUTPUT
-      - name: Checkout repository
+      - name: Checkout PR code for review
         # Only review substantial changes (5+ files OR 20+ lines changed)
         if: |
           github.event.pull_request.changed_files >= 5 ||
           steps.calc.outputs.total >= 20
         uses: actions/checkout@v4
         with:
+          # Checkout the PR head commit (pull_request_target defaults to base branch)
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
 
       - name: Run Claude Code Review
@@ -45,6 +55,8 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Explicit github_token needed for pull_request_target (OIDC doesn't work)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}

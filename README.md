@@ -2,8 +2,8 @@
 
 [![CI](https://github.com/frankbria/ralph-claude-code/actions/workflows/test.yml/badge.svg)](https://github.com/frankbria/ralph-claude-code/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Version](https://img.shields.io/badge/version-0.10.1-blue)
-![Tests](https://img.shields.io/badge/tests-310%20passing-green)
+![Version](https://img.shields.io/badge/version-0.11.4-blue)
+![Tests](https://img.shields.io/badge/tests-465%20passing-green)
 [![GitHub Issues](https://img.shields.io/github/issues/frankbria/ralph-claude-code)](https://github.com/frankbria/ralph-claude-code/issues)
 [![Mentioned in Awesome Claude Code](https://awesome.re/mentioned-badge.svg)](https://github.com/hesreallyhim/awesome-claude-code)
 [![Follow on X](https://img.shields.io/twitter/follow/FrankBria18044?style=social)](https://x.com/FrankBria18044)
@@ -16,9 +16,9 @@ Ralph is an implementation of the Geoffrey Huntley's technique for Claude Code t
 
 ## Project Status
 
-**Version**: v0.10.1 - Active Development
+**Version**: v0.11.4 - Active Development
 **Core Features**: Working and tested
-**Test Coverage**: 310 tests, 100% pass rate
+**Test Coverage**: 465 tests, 100% pass rate
 
 ### What's Working Now
 - Autonomous development loops with intelligent exit detection
@@ -27,110 +27,101 @@ Ralph is an implementation of the Geoffrey Huntley's technique for Claude Code t
 - Circuit breaker with advanced error detection (prevents runaway loops)
 - Response analyzer with semantic understanding and two-stage error filtering
 - **JSON output format support with automatic fallback to text parsing**
-- **Session continuity with `--continue` flag for context preservation**
+- **Session continuity with `--resume` flag for context preservation (no session hijacking)**
 - **Session expiration with configurable timeout (default: 24 hours)**
 - **Modern CLI flags: `--output-format`, `--allowed-tools`, `--no-continue`**
+- **Interactive project enablement with `ralph-enable` wizard**
+- **`.ralphrc` configuration file for project settings**
+- **Live streaming output with `--live` flag for real-time Claude Code visibility**
 - Multi-line error matching for accurate stuck loop detection
 - 5-hour API limit handling with user prompts
 - tmux integration for live monitoring
 - PRD import functionality
 - **CI/CD pipeline with GitHub Actions**
 - **Dedicated uninstall script for clean removal**
-- 310 passing tests across 11 test files
 
 ### Recent Improvements
 
+**v0.11.4 - Bug Fixes & Compatibility** (latest)
+- Fixed progress detection: Git commits within a loop now count as progress (#141)
+- Fixed checkbox regex: Date entries `[2026-01-29]` no longer counted as checkboxes (#144)
+- Fixed session hijacking: Use `--resume <session_id>` instead of `--continue` (#151)
+- Fixed EXIT_SIGNAL override: `STATUS: COMPLETE` with `EXIT_SIGNAL: false` now continues working (#146)
+- Fixed ralph-import hanging indefinitely (added `--print` flag for non-interactive mode)
+- Fixed ralph-import absolute path handling
+- Fixed cross-platform date commands for macOS with Homebrew coreutils
+- Added configurable circuit breaker thresholds via environment variables (#99)
+- Added tmux support for non-zero `base-index` configurations
+- Added 13 new regression tests for progress detection and checkbox regex
+
+**v0.11.3 - Live Streaming & Beads Fix**
+- Added live streaming output mode with `--live` flag for real-time Claude Code visibility (#125)
+- Fixed beads task import using correct `bd list` arguments (#150)
+- Applied CodeRabbit review fixes: camelCase variables, status-respecting fallback, jq guards
+- Added 12 new tests for live streaming and beads import improvements
+
+**v0.11.2 - Setup Permissions Fix**
+- Fixed issue #136: `ralph-setup` now creates `.ralphrc` with consistent tool permissions
+- Updated default `ALLOWED_TOOLS` to include `Edit`, `Bash(npm *)`, and `Bash(pytest)`
+- Both `ralph-setup` and `ralph-enable` now create identical `.ralphrc` configurations
+- Monitor now forwards all CLI parameters to inner ralph loop (#126)
+- Added 16 new tests for permissions and parameter forwarding
+
+**v0.11.1 - Completion Indicators Fix**
+- Fixed premature exit after exactly 5 loops in JSON output mode
+- `completion_indicators` now only accumulates when `EXIT_SIGNAL: true`
+- Aligns with documented dual-condition exit gate behavior
+
+**v0.11.0 - Ralph Enable Wizard**
+- Added `ralph-enable` interactive wizard for enabling Ralph in existing projects
+- 5-phase wizard: Environment Detection → Task Source Selection → Configuration → File Generation → Verification
+- Auto-detects project type (TypeScript, Python, Rust, Go) and framework (Next.js, FastAPI, Django)
+- Imports tasks from beads, GitHub Issues, or PRD documents
+- Added `ralph-enable-ci` non-interactive version for CI/automation
+- New library components: `enable_core.sh`, `wizard_utils.sh`, `task_sources.sh`
+
 **v0.10.1 - Bug Fixes & Monitor Path Corrections**
-- Fixed `ralph_monitor.sh` hardcoded paths for v0.10.0 compatibility:
-  - `STATUS_FILE`: `status.json` → `.ralph/status.json`
-  - `LOG_FILE`: `logs/ralph.log` → `.ralph/logs/ralph.log`
-  - `progress.json` → `.ralph/progress.json`
-- Fixed EXIT_SIGNAL parsing in JSON format (Bug #1):
-  - Now extracts `EXIT_SIGNAL` from `.result` field when Claude CLI returns JSON
-  - Properly detects RALPH_STATUS blocks embedded in JSON response text
-- Added safety circuit breaker (Bug #2):
-  - Force exit after 5 consecutive completion indicators (prevents infinite loops)
-  - Higher threshold than normal (2) to avoid false positives while preventing API waste
-- Fixed checkbox parsing for indented markdown (Bug #3):
-  - Changed patterns from `^- \[` to `^[[:space:]]*- \[` (POSIX-compliant)
-  - Supports indented checkboxes in `fix_plan.md`
-- Updated README.md documentation example for new log path
+- Fixed `ralph_monitor.sh` hardcoded paths for v0.10.0 compatibility
+- Fixed EXIT_SIGNAL parsing in JSON format
+- Added safety circuit breaker (force exit after 5 consecutive completion indicators)
+- Fixed checkbox parsing for indented markdown
 
 **v0.10.0 - .ralph/ Subfolder Structure (BREAKING CHANGE)**
 - **Breaking**: Moved all Ralph-specific files to `.ralph/` subfolder
 - Project root stays clean: only `src/`, `README.md`, and user files remain
 - Added `ralph-migrate` command for upgrading existing projects
-- Migration script creates backup before moving files
-- Fail-safe migration: preserves dotfiles with `cp -a source/. dest/` pattern
-- Auto-detection of old structure with helpful upgrade guidance
-- Updated all tests for new structure (310 tests)
+
+<details>
+<summary>Earlier versions (v0.9.x)</summary>
 
 **v0.9.9 - EXIT_SIGNAL Gate & Uninstall Script**
 - Fixed premature exit bug: completion indicators now require Claude's explicit `EXIT_SIGNAL: true`
-- Added dual-condition check preventing exits when Claude reports work in progress
-- Added `response_analyzer.sh` fix to respect explicit EXIT_SIGNAL over heuristics
 - Added dedicated `uninstall.sh` script for clean Ralph removal
-- Session expiration with configurable timeout (default: 24 hours)
-- Added 32 new tests for EXIT_SIGNAL behavior and session expiration
-- Test count: 308 (up from 276)
 
 **v0.9.8 - Modern CLI for PRD Import**
 - Modernized `ralph_import.sh` to use Claude Code CLI JSON output format
-- JSON output format support with `--output-format json` for structured responses
 - Enhanced error handling with structured JSON error messages
-- Improved file verification with JSON-derived status information
-- Backward compatibility with older CLI versions (automatic text fallback)
-- Added 11 new tests for modern CLI features
 
 **v0.9.7 - Session Lifecycle Management**
 - Complete session lifecycle management with automatic reset triggers
-- Session auto-reset on: circuit breaker open, manual interrupt, project completion
 - Added `--reset-session` CLI flag for manual session reset
-- Session history tracking (last 50 transitions) for debugging
-- Added 26 new tests for session continuity features
 
 **v0.9.6 - JSON Output & Session Management**
 - Extended `parse_json_response()` to support Claude Code CLI JSON format
-- Added session management functions: `store_session_id()`, `get_last_session_id()`, `should_resume_session()`
-- Cross-platform epoch time utilities in date_utils.sh
-- Added 16 new tests covering Claude CLI format and session management
+- Added session management functions
 
-**v0.9.5 - PRD Import Tests**
-- Added 22 comprehensive tests for `ralph_import.sh` PRD conversion script
-- Tests cover: file format support, output file creation, project naming, error handling
+**v0.9.5 - v0.9.0** - PRD import tests, project setup tests, installation tests, prompt file fix, modern CLI commands, circuit breaker enhancements
 
-**v0.9.4 - Project Setup Tests**
-- Added 36 comprehensive tests for `setup.sh` project initialization script
-- Tests cover: directory creation, template copying, git initialization
-
-**v0.9.3 - Installation Tests**
-- Added 14 comprehensive tests for `install.sh` global installation script
-- Tests cover: directory creation, command installation, dependency detection
-
-**v0.9.2 - Prompt File Fix**
-- Fixed critical bug: replaced non-existent `--prompt-file` CLI flag with `-p` flag
-- Modern CLI mode now correctly passes prompt content via `-p "$(cat file)"`
-- Added error handling for missing prompt files in `build_claude_command()`
-
-**v0.9.1 - Modern CLI Commands (Phase 1.1)**
-- JSON output format support with `--output-format json` (default)
-- Session continuity using `--continue` flag for cross-loop context
-- Tool permissions via `--allowed-tools` flag
-- CI/CD pipeline with kcov coverage reporting
-
-**v0.9.0 - Circuit Breaker Enhancements**
-- Fixed multi-line error matching in stuck loop detection
-- Eliminated JSON field false positives (e.g., `"is_error": false`)
-- Added two-stage error filtering for accurate detection
+</details>
 
 ### In Progress
 - Expanding test coverage
 - Log rotation functionality
 - Dry-run mode
-- Configuration file support (.ralphrc)
 - Metrics and analytics tracking
 - Desktop notifications
 - Git backup and rollback system
+- [Automated badge updates](#138)
 
 **Timeline to v1.0**: ~4 weeks | [Full roadmap](IMPLEMENTATION_PLAN.md) | **Contributions welcome!**
 
@@ -145,6 +136,8 @@ Ralph is an implementation of the Geoffrey Huntley's technique for Claude Code t
 - **Live Monitoring** - Real-time dashboard showing loop status, progress, and logs
 - **Task Management** - Structured approach with prioritized task lists and progress tracking
 - **Project Templates** - Quick setup for new projects with best-practice structure
+- **Interactive Project Setup** - `ralph-enable` wizard for existing projects with task import
+- **Configuration Files** - `.ralphrc` for project-specific settings and tool permissions
 - **Comprehensive Logging** - Detailed execution logs with timestamps and status tracking
 - **Configurable Timeouts** - Set execution timeout for Claude Code operations (1-120 minutes)
 - **Verbose Progress Mode** - Optional detailed progress updates during execution
@@ -152,6 +145,7 @@ Ralph is an implementation of the Geoffrey Huntley's technique for Claude Code t
 - **Circuit Breaker** - Advanced error detection with two-stage filtering, multi-line error matching, and automatic recovery
 - **CI/CD Integration** - GitHub Actions workflow with automated testing
 - **Clean Uninstall** - Dedicated uninstall script for complete removal
+- **Live Streaming Output** - Real-time visibility into Claude Code execution with `--live` flag
 
 ## Quick Start
 
@@ -161,8 +155,8 @@ Ralph has two phases: **one-time installation** and **per-project setup**.
 INSTALL ONCE              USE MANY TIMES
 +-----------------+          +----------------------+
 | ./install.sh    |    ->    | ralph-setup project1 |
-|                 |          | ralph-setup project2 |
-| Adds global     |          | ralph-setup project3 |
+|                 |          | ralph-enable         |
+| Adds global     |          | ralph-import prd.md  |
 | commands        |          | ...                  |
 +-----------------+          +----------------------+
 ```
@@ -177,17 +171,31 @@ cd ralph-claude-code
 ./install.sh
 ```
 
-This adds `ralph`, `ralph-monitor`, `ralph-setup`, `ralph-import`, and `ralph-migrate` commands to your PATH.
+This adds `ralph`, `ralph-monitor`, `ralph-setup`, `ralph-import`, `ralph-migrate`, `ralph-enable`, and `ralph-enable-ci` commands to your PATH.
 
 > **Note**: You only need to do this once per system. After installation, you can delete the cloned repository if desired.
 
-### Phase 2: Initialize New Projects (Per Project)
+### Phase 2: Initialize Projects (Per Project)
 
-For each new project you want Ralph to work on:
-
-#### Option A: Import Existing PRD/Specifications
+#### Option A: Enable Ralph in Existing Project (Recommended)
 ```bash
-# Convert existing PRD/specs to Ralph format (recommended)
+cd my-existing-project
+
+# Interactive wizard - auto-detects project type and imports tasks
+ralph-enable
+
+# Or with specific task source
+ralph-enable --from beads
+ralph-enable --from github --label "sprint-1"
+ralph-enable --from prd ./docs/requirements.md
+
+# Start autonomous development
+ralph --monitor
+```
+
+#### Option B: Import Existing PRD/Specifications
+```bash
+# Convert existing PRD/specs to Ralph format
 ralph-import my-requirements.md my-project
 cd my-project
 
@@ -200,7 +208,7 @@ cd my-project
 ralph --monitor
 ```
 
-#### Option B: Manual Project Setup
+#### Option C: Create New Project from Scratch
 ```bash
 # Create blank Ralph project
 ralph-setup my-awesome-project
@@ -240,6 +248,39 @@ To completely remove Ralph from your system:
 curl -sL https://raw.githubusercontent.com/frankbria/ralph-claude-code/main/uninstall.sh | bash
 ```
 
+## Understanding Ralph Files
+
+After running `ralph-enable` or `ralph-import`, you'll have a `.ralph/` directory with several files. Here's what each file does and whether you need to edit it:
+
+| File | Auto-Generated? | You Should... |
+|------|-----------------|---------------|
+| `.ralph/PROMPT.md` | Yes (smart defaults) | **Review & customize** project goals and principles |
+| `.ralph/fix_plan.md` | Yes (can import tasks) | **Add/modify** specific implementation tasks |
+| `.ralph/AGENT.md` | Yes (detects build commands) | Rarely edit (auto-maintained by Ralph) |
+| `.ralph/specs/` | Empty directory | Add files when PROMPT.md isn't detailed enough |
+| `.ralph/specs/stdlib/` | Empty directory | Add reusable patterns and conventions |
+| `.ralphrc` | Yes (project-aware) | Rarely edit (sensible defaults) |
+
+### Key File Relationships
+
+```
+PROMPT.md (high-level goals)
+    ↓
+specs/ (detailed requirements when needed)
+    ↓
+fix_plan.md (specific tasks Ralph executes)
+    ↓
+AGENT.md (build/test commands - auto-maintained)
+```
+
+### When to Use specs/
+
+- **Simple projects**: PROMPT.md + fix_plan.md is usually enough
+- **Complex features**: Add specs/feature-name.md for detailed requirements
+- **Team conventions**: Add specs/stdlib/convention-name.md for reusable patterns
+
+See the [User Guide](docs/user-guide/) for detailed explanations and the [examples/](examples/) directory for realistic project configurations.
+
 ## How It Works
 
 Ralph operates on a simple but powerful cycle:
@@ -277,6 +318,30 @@ Loop 8: Claude outputs "All tasks complete, project ready"
 - Too many test-focused loops (indicating feature completeness)
 - Claude API 5-hour usage limit reached (with user prompt to wait or exit)
 
+## Enabling Ralph in Existing Projects
+
+The `ralph-enable` command provides an interactive wizard for adding Ralph to existing projects:
+
+```bash
+cd my-existing-project
+ralph-enable
+```
+
+**The wizard:**
+1. **Detects Environment** - Identifies project type (TypeScript, Python, etc.) and framework
+2. **Selects Task Sources** - Choose from beads, GitHub Issues, or PRD documents
+3. **Configures Settings** - Set tool permissions and loop parameters
+4. **Generates Files** - Creates `.ralph/` directory and `.ralphrc` configuration
+5. **Verifies Setup** - Confirms all files are created correctly
+
+**Non-interactive mode for CI/automation:**
+```bash
+ralph-enable-ci                              # Sensible defaults
+ralph-enable-ci --from github               # Import from GitHub Issues
+ralph-enable-ci --project-type typescript   # Override detection
+ralph-enable-ci --json                      # Machine-readable output
+```
+
 ## Importing Existing Requirements
 
 Ralph can convert existing PRDs, specifications, or requirement documents into the proper Ralph format using Claude Code.
@@ -312,22 +377,38 @@ Ralph-import creates a complete project with:
 - **.ralph/PROMPT.md** - Converted into Ralph development instructions
 - **.ralph/fix_plan.md** - Requirements broken down into prioritized tasks
 - **.ralph/specs/requirements.md** - Technical specifications extracted from your document
+- **.ralphrc** - Project configuration file with tool permissions
 - **Standard Ralph structure** - All necessary directories and template files in `.ralph/`
 
 The conversion is intelligent and preserves your original requirements while making them actionable for autonomous development.
 
-### Modern CLI Features (v0.9.8)
-
-Ralph-import uses modern Claude Code CLI features for improved reliability:
-
-- **JSON Output Format**: Structured responses enable precise parsing of conversion results
-- **Automatic Fallback**: Gracefully handles older CLI versions with text-based parsing
-- **Enhanced Error Reporting**: Extracts specific error messages and codes from JSON responses
-- **Session Tracking**: Captures session IDs for potential continuation of interrupted conversions
-
-> **Note**: These features require Claude Code CLI version 2.0.76 or later. Older versions will work with standard text output.
-
 ## Configuration
+
+### Project Configuration (.ralphrc)
+
+Each Ralph project can have a `.ralphrc` configuration file:
+
+```bash
+# .ralphrc - Ralph project configuration
+PROJECT_NAME="my-project"
+PROJECT_TYPE="typescript"
+
+# Loop settings
+MAX_CALLS_PER_HOUR=100
+CLAUDE_TIMEOUT_MINUTES=15
+CLAUDE_OUTPUT_FORMAT="json"
+
+# Tool permissions
+ALLOWED_TOOLS="Write,Read,Edit,Bash(git *),Bash(npm *),Bash(pytest)"
+
+# Session management
+SESSION_CONTINUITY=true
+SESSION_EXPIRY_HOURS=24
+
+# Circuit breaker thresholds
+CB_NO_PROGRESS_THRESHOLD=3
+CB_SAME_ERROR_THRESHOLD=5
+```
 
 ### Rate Limiting & Circuit Breaker
 
@@ -394,6 +475,21 @@ ralph --verbose
 ralph --monitor --verbose --timeout 30
 ```
 
+### Live Streaming Output
+
+```bash
+# Enable real-time visibility into Claude Code execution
+ralph --live
+
+# Combine with monitoring for best experience
+ralph --monitor --live
+
+# Live output is written to .ralph/live.log
+tail -f .ralph/live.log  # Watch in another terminal
+```
+
+Live streaming mode shows Claude Code's output in real-time as it works, providing visibility into what's happening during each loop iteration.
+
 ### Session Continuity
 
 Ralph maintains session context across loop iterations for improved coherence:
@@ -457,13 +553,14 @@ Ralph creates a standardized structure for each project with a `.ralph/` subfold
 my-project/
 ├── .ralph/                 # Ralph configuration and state (hidden folder)
 │   ├── PROMPT.md           # Main development instructions for Ralph
-│   ├── fix_plan.md        # Prioritized task list (@ prefix = Ralph control file)
+│   ├── fix_plan.md        # Prioritized task list
 │   ├── AGENT.md           # Build and run instructions
 │   ├── specs/              # Project specifications and requirements
 │   │   └── stdlib/         # Standard library specifications
 │   ├── examples/           # Usage examples and test cases
 │   ├── logs/               # Ralph execution logs
 │   └── docs/generated/     # Auto-generated documentation
+├── .ralphrc                # Ralph configuration file (tool permissions, settings)
 └── src/                    # Source code implementation (at project root)
 ```
 
@@ -514,7 +611,7 @@ If you want to run the test suite:
 # Install BATS testing framework
 npm install -g bats bats-support bats-assert
 
-# Run all tests (308 tests)
+# Run all tests (465 tests)
 npm test
 
 # Run specific test suites
@@ -524,6 +621,10 @@ bats tests/unit/test_json_parsing.bats
 bats tests/unit/test_cli_modern.bats
 bats tests/unit/test_cli_parsing.bats
 bats tests/unit/test_session_continuity.bats
+bats tests/unit/test_enable_core.bats
+bats tests/unit/test_task_sources.bats
+bats tests/unit/test_ralph_enable.bats
+bats tests/unit/test_wizard_utils.bats
 bats tests/integration/test_loop_execution.bats
 bats tests/integration/test_prd_import.bats
 bats tests/integration/test_project_setup.bats
@@ -535,10 +636,10 @@ bats tests/integration/test_installation.bats
 ```
 
 Current test status:
-- **308 tests** across 11 test files
-- **100% pass rate** (308/308 passing)
+- **465 tests** across 15 test files
+- **100% pass rate** (452/452 passing)
 - Comprehensive unit and integration tests
-- Specialized tests for JSON parsing, CLI flags, circuit breaker, EXIT_SIGNAL behavior, and installation workflows
+- Specialized tests for JSON parsing, CLI flags, circuit breaker, EXIT_SIGNAL behavior, enable wizard, and installation workflows
 
 > **Note on Coverage**: Bash code coverage measurement with kcov has fundamental limitations when tracing subprocess executions. Test pass rate (100%) is the quality gate. See [bats-core#15](https://github.com/bats-core/bats-core/issues/15) for details.
 
@@ -615,6 +716,11 @@ tail -f .ralph/logs/ralph.log
 - **tmux Session Lost** - Use `tmux list-sessions` and `tmux attach` to reconnect
 - **Session Expired** - Sessions expire after 24 hours by default; use `--reset-session` to start fresh
 - **timeout: command not found (macOS)** - Install GNU coreutils: `brew install coreutils`
+- **Permission Denied** - Ralph halts when Claude Code is denied permission for commands:
+  1. Edit `.ralphrc` and update `ALLOWED_TOOLS` to include required tools
+  2. Common patterns: `Bash(npm *)`, `Bash(git *)`, `Bash(pytest)`
+  3. Run `ralph --reset-session` after updating `.ralphrc`
+  4. Restart with `ralph --monitor`
 
 ## Contributing
 
@@ -637,13 +743,13 @@ cd ralph-claude-code
 
 # Install dependencies and run tests
 npm install
-npm test  # All 308 tests must pass
+npm test  # All 465 tests must pass
 ```
 
 ### Priority Contribution Areas
 
 1. **Test Implementation** - Help expand test coverage
-2. **Feature Development** - Log rotation, dry-run mode, config files, metrics
+2. **Feature Development** - Log rotation, dry-run mode, metrics
 3. **Documentation** - Tutorials, troubleshooting guides, examples
 4. **Real-World Testing** - Use Ralph, report bugs, share feedback
 
@@ -686,9 +792,10 @@ ralph [OPTIONS]
   -s, --status            Show current status and exit
   -m, --monitor           Start with tmux session and live monitor
   -v, --verbose           Show detailed progress updates during execution
+  -l, --live              Enable live streaming output (real-time Claude Code visibility)
   -t, --timeout MIN       Set Claude Code execution timeout in minutes (1-120, default: 15)
   --output-format FORMAT  Set output format: json (default) or text
-  --allowed-tools TOOLS   Set allowed Claude tools (default: Write,Bash(git *),Read)
+  --allowed-tools TOOLS   Set allowed Claude tools (default: Write,Read,Edit,Bash(git *),Bash(npm *),Bash(pytest))
   --no-continue           Disable session continuity (start fresh each loop)
   --reset-circuit         Reset the circuit breaker
   --circuit-status        Show circuit breaker status
@@ -698,6 +805,8 @@ ralph [OPTIONS]
 ### Project Commands (Per Project)
 ```bash
 ralph-setup project-name     # Create new Ralph project
+ralph-enable                 # Enable Ralph in existing project (interactive)
+ralph-enable-ci              # Enable Ralph in existing project (non-interactive)
 ralph-import prd.md project  # Convert PRD/specs to Ralph project
 ralph --monitor              # Start with integrated monitoring
 ralph --status               # Check current loop status
@@ -705,6 +814,7 @@ ralph --verbose              # Enable detailed progress updates
 ralph --timeout 30           # Set 30-minute execution timeout
 ralph --calls 50             # Limit to 50 API calls per hour
 ralph --reset-session        # Reset session state manually
+ralph --live                 # Enable live streaming output
 ralph-monitor                # Manual monitoring dashboard
 ```
 
@@ -721,28 +831,30 @@ tmux attach -t <name>     # Reattach to detached session
 
 Ralph is under active development with a clear path to v1.0.0. See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the complete roadmap.
 
-### Current Status: v0.9.9
+### Current Status: v0.11.4
 
 **What's Delivered:**
 - Core loop functionality with intelligent exit detection
 - **Dual-condition exit gate** (completion indicators + EXIT_SIGNAL)
 - Rate limiting (100 calls/hour) and circuit breaker pattern
 - Response analyzer with semantic understanding
-- 308 comprehensive tests (100% pass rate)
+- **452 comprehensive tests** (100% pass rate)
+- **Live streaming output mode** for real-time Claude Code visibility
 - tmux integration and live monitoring
 - PRD import functionality with modern CLI JSON parsing
 - Installation system and project templates
 - Modern CLI commands with JSON output support
 - CI/CD pipeline with GitHub Actions
-- Comprehensive installation test suite
+- **Interactive `ralph-enable` wizard for existing projects**
+- **`.ralphrc` configuration file support**
 - Session lifecycle management with auto-reset triggers
 - Session expiration with configurable timeout
 - Dedicated uninstall script
 
 **Test Coverage Breakdown:**
-- Unit Tests: 164 (CLI parsing, JSON, exit detection, rate limiting, session continuity)
+- Unit Tests: 308 (CLI parsing, JSON, exit detection, rate limiting, session continuity, enable wizard, live streaming)
 - Integration Tests: 144 (loop execution, edge cases, installation, project setup, PRD import)
-- Test Files: 11
+- Test Files: 15
 
 ### Path to v1.0.0 (~4 weeks)
 
@@ -754,7 +866,6 @@ Ralph is under active development with a clear path to v1.0.0. See [IMPLEMENTATI
 **Core Features**
 - Log rotation functionality
 - Dry-run mode
-- Configuration file support - .ralphrc
 
 **Advanced Features & Polish**
 - Metrics and analytics tracking
@@ -768,7 +879,7 @@ See [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) for detailed progress t
 ### How to Contribute
 Ralph is seeking contributors! See [CONTRIBUTING.md](CONTRIBUTING.md) for the complete guide. Priority areas:
 1. **Test Implementation** - Help expand test coverage ([see plan](IMPLEMENTATION_PLAN.md))
-2. **Feature Development** - Log rotation, dry-run mode, config files
+2. **Feature Development** - Log rotation, dry-run mode, metrics
 3. **Documentation** - Usage examples, tutorials, troubleshooting guides
 4. **Bug Reports** - Real-world usage feedback and edge cases
 

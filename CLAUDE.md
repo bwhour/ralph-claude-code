@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is the Ralph for Claude Code repository - an autonomous AI development loop system that enables continuous development cycles with intelligent exit detection and rate limiting.
 
-**Version**: v0.11.1 | **Tests**: 424 passing (100% pass rate) | **CI/CD**: GitHub Actions
+See [README.md](README.md) for version info, changelog, and user documentation.
 
 ## Core Architecture
 
@@ -205,7 +205,7 @@ Ralph uses modern Claude Code CLI flags for structured communication:
 **Configuration Variables:**
 ```bash
 CLAUDE_OUTPUT_FORMAT="json"           # Output format: json (default) or text
-CLAUDE_ALLOWED_TOOLS="Write,Bash(git *),Read"  # Allowed tool permissions
+CLAUDE_ALLOWED_TOOLS="Write,Read,Edit,Bash(git *),Bash(npm *),Bash(pytest)"  # Allowed tool permissions
 CLAUDE_USE_CONTINUE=true              # Enable session continuity
 CLAUDE_MIN_VERSION="2.0.76"           # Minimum Claude CLI version
 ```
@@ -378,6 +378,28 @@ fi
 - `CB_NO_PROGRESS_THRESHOLD=3` - Open circuit after 3 loops with no file changes
 - `CB_SAME_ERROR_THRESHOLD=5` - Open circuit after 5 loops with repeated errors
 - `CB_OUTPUT_DECLINE_THRESHOLD=70%` - Open circuit if output declines by >70%
+- `CB_PERMISSION_DENIAL_THRESHOLD=2` - Open circuit after 2 loops with permission denials (Issue #101)
+
+### Permission Denial Detection (Issue #101)
+
+When Claude Code is denied permission to execute commands (e.g., `npm install`), Ralph detects this from the `permission_denials` array in the JSON output and halts the loop immediately:
+
+1. **Detection**: The `parse_json_response()` function extracts `permission_denials` from Claude Code output
+2. **Fields tracked**:
+   - `has_permission_denials` (boolean)
+   - `permission_denial_count` (integer)
+   - `denied_commands` (array of command strings)
+3. **Exit behavior**: When `has_permission_denials=true`, Ralph exits with reason "permission_denied"
+4. **User guidance**: Ralph displays instructions to update `ALLOWED_TOOLS` in `.ralphrc`
+
+**Example `.ralphrc` tool patterns:**
+```bash
+# Broad patterns (recommended for development)
+ALLOWED_TOOLS="Write,Read,Edit,Bash(git *),Bash(npm *),Bash(pytest)"
+
+# Specific patterns (more restrictive)
+ALLOWED_TOOLS="Write,Read,Edit,Bash(git commit),Bash(npm install)"
+```
 
 ### Error Detection
 
@@ -410,7 +432,7 @@ Ralph uses advanced error detection with two-stage filtering to eliminate false 
 | `test_cli_modern.bats` | 29 | Modern CLI commands (Phase 1.1) + build_claude_command fix |
 | `test_json_parsing.bats` | 45 | JSON output format parsing + Claude CLI format + session management + array format |
 | `test_session_continuity.bats` | 28 | Session lifecycle management + circuit breaker integration + issue #91 fix |
-| `test_exit_detection.bats` | 35 | Exit signal detection + EXIT_SIGNAL-based completion indicators |
+| `test_exit_detection.bats` | 53 | Exit signal detection + EXIT_SIGNAL-based completion indicators + progress detection |
 | `test_rate_limiting.bats` | 15 | Rate limiting behavior |
 | `test_loop_execution.bats` | 20 | Integration tests |
 | `test_edge_cases.bats` | 20 | Edge case handling |
@@ -433,226 +455,6 @@ npm run test:unit
 # Specific test file
 bats tests/unit/test_cli_parsing.bats
 ```
-
-## Recent Improvements
-
-### Completion Indicators Fix (v0.11.1)
-- Fixed premature exit after exactly 5 loops in JSON output mode
-- Root cause: `update_exit_signals()` used confidence threshold (≥60) to populate `completion_indicators`
-  - JSON mode always has confidence ≥70 due to deterministic scoring (+50 for JSON format, +20 for result field)
-  - This caused every successful JSON response to increment `completion_indicators`
-  - After 5 loops, safety circuit breaker triggered even when Claude set `EXIT_SIGNAL: false`
-- Fix: Replaced confidence-based heuristic with explicit EXIT_SIGNAL checking
-  - `completion_indicators` now only accumulates when `exit_signal == "true"`
-  - Aligns with documented behavior in CLAUDE.md and README.md
-  - Confidence scoring retained for analysis/logging purposes
-- Updated safety circuit breaker documentation in `ralph_loop.sh` to reflect new behavior
-- Added 4 new TDD tests (Tests 32-35) for `update_exit_signals()` behavior
-- Test count: 424 (up from 420)
-
-### Ralph Enable Command (v0.11.0)
-- Added `ralph-enable` interactive wizard for enabling Ralph in existing projects
-  - 5-phase wizard: Environment Detection → Task Source Selection → Configuration → File Generation → Verification
-  - Auto-detects project type (TypeScript, Python, Rust, Go) and framework (Next.js, FastAPI, Django)
-  - Imports tasks from beads, GitHub Issues, or PRD documents
-  - Generates `.ralphrc` project configuration file
-- Added `ralph-enable-ci` non-interactive version for CI/automation
-  - JSON output mode (`--json`) for machine parsing
-  - Exit codes: 0 (success), 1 (error), 2 (already enabled)
-  - Override flags: `--project-name`, `--project-type`, `--from`, `--force`
-- New library components:
-  - `lib/enable_core.sh` - Shared enable logic with idempotency checks
-  - `lib/wizard_utils.sh` - Interactive prompt utilities
-  - `lib/task_sources.sh` - Task import from beads/GitHub/PRD
-- Updated `ralph_loop.sh` to load `.ralphrc` configuration at startup
-- Added 75 new tests (30 enable_core + 23 task_sources + 22 integration)
-- Test count: 396 (up from 321)
-- Related issues: #85, #121, #64, #87, #99
-
-### Stale Completion Indicators Fix (v0.10.1) - Issue #91
-- Fixed premature exit caused by stale completion indicators persisting across sessions
-- Root cause: `.exit_signals` and `.response_analysis` files retained old completion counts
-- Enhanced `reset_session()` to clear exit-related state files:
-  - Resets `.exit_signals` to empty structure (no completion indicators)
-  - Removes `.response_analysis` to prevent stale EXIT_SIGNAL detection
-- Session reset now comprehensively clears: session ID, exit signals, and response analysis
-- Added 2 new tests validating exit signal clearing behavior
-- Test count: 321 (up from 319)
-
-### JSON Array Format Support (v0.10.1)
-- Fixed `parse_json_response` to handle Claude CLI JSON array output format (issue #112)
-- Claude CLI outputs `[{type: "system", ...}, {type: "assistant", ...}, {type: "result", ...}]`
-- Previously expected single JSON object, now supports three formats:
-  1. Flat format: `{ status, exit_signal, work_type, ... }`
-  2. Claude CLI object format: `{ result, sessionId, metadata: {...} }`
-  3. Claude CLI array format: `[ {type: "result", ...}, ... ]`
-- Extracts `result` type message from array and normalizes to object format
-- Preserves `session_id` from init message for session continuity
-- Added 9 new tests for JSON array format handling (including session_id-in-result regression test)
-- Review fixes: guard against empty result_obj, prioritize result object's session_id
-- Test count: 319 (up from 310)
-
-### .ralph/ Subfolder Structure (v0.10.0) - BREAKING CHANGE
-- **Breaking**: Moved all Ralph-specific files to `.ralph/` subfolder
-- Project root stays clean: only `src/`, `README.md`, and user files remain
-- Added `ralph-migrate` command for upgrading existing projects
-- Migration script with fail-safe copy pattern (`cp -a source/. dest/`)
-- Auto-detection of old structure with upgrade guidance
-- Updated all configuration variables to use `$RALPH_DIR` prefix
-- Test count: 310 (up from 308)
-
-### Modern CLI for PRD Import (v0.9.8)
-- Modernized `ralph_import.sh` to use Claude Code CLI JSON output format
-  - Added `--output-format json` flag for structured responses
-  - Implemented `detect_response_format()` for JSON vs text detection
-  - Implemented `parse_conversion_response()` for extracting JSON fields
-- Enhanced error handling with structured JSON error messages
-  - Extracts `error_message` and `error_code` from JSON metadata
-  - Provides specific, actionable feedback on conversion failures
-- Improved file verification with JSON-derived status information
-  - Reports files created vs missing based on JSON metadata
-  - Logs session ID for potential conversion continuation
-- Backward compatibility with older CLI versions
-  - Automatic fallback to text-based parsing when JSON unavailable
-  - Version detection with `check_claude_version()` function
-- Enhanced logging with modern CLI awareness
-  - Reports which CLI mode is being used
-  - Detailed file creation status reporting
-- Added 11 new tests for modern CLI features (tests 23-33)
-- Test count: 276 (up from 265)
-
-### Session Lifecycle Management (v0.9.7)
-- Added complete session lifecycle management with automatic reset triggers:
-  - `get_session_id()` - Retrieves current session from `.ralph_session`
-  - `reset_session(reason)` - Clears session with reason logging
-  - `log_session_transition()` - Records transitions to `.ralph_session_history`
-  - `init_session_tracking()` - Initializes session file with validation
-- Session auto-reset integration points:
-  - Circuit breaker open events (stagnation detection)
-  - Manual interrupt (Ctrl+C / SIGINT)
-  - Project completion (graceful exit)
-  - Manual circuit breaker reset (`--reset-circuit`)
-- Added `--reset-session` CLI flag for manual session reset
-- Session history tracking (last 50 transitions) for debugging
-- New configuration constants: `RALPH_SESSION_FILE`, `RALPH_SESSION_HISTORY_FILE`
-- Added 26 new tests for session continuity features
-- Test count: 265 (up from 239)
-
-### JSON Output & Session Management (v0.9.6)
-- Extended `parse_json_response()` to support Claude Code CLI JSON format
-  - Supports `result`, `sessionId`, and `metadata` fields alongside existing flat format
-  - Extracts `metadata.files_changed`, `metadata.has_errors`, `metadata.completion_status`
-  - Parses `metadata.progress_indicators` array for confidence boosting
-- Added session management functions for continuity tracking:
-  - `store_session_id()` - Persists session with timestamp
-  - `get_last_session_id()` - Retrieves stored session ID
-  - `should_resume_session()` - Checks session validity (24-hour expiration)
-- Added `get_epoch_seconds()` to date_utils.sh for cross-platform epoch time
-- Auto-persists sessionId to `.claude_session_id` file during response analysis
-- Added 16 new tests covering Claude CLI format and session management
-- Test count: 239 (up from 223)
-
-### PRD Import Tests (v0.9.5)
-- Added 22 comprehensive tests for `ralph_import.sh` PRD conversion script
-- Tests cover: file format support (.md, .txt, .json), output file creation, project naming
-- Mock infrastructure for `ralph-setup` and Claude Code CLI isolation
-- Output file validation: PROMPT.md, fix_plan.md, specs/requirements.md creation
-- Project naming tests: custom names, auto-detection from filename, path handling
-- Error handling tests: missing source file, missing ralph-setup, conversion failures
-- Help and usage tests: --help flag, no arguments behavior
-- Full workflow integration: complete project structure validation
-- Edge cases: hyphens in names, uppercase filenames, subdirectory paths
-- Test helper: added `create_sample_prd_txt()` fixture function
-- Test count: 223 (up from 201)
-
-### Project Setup Tests (v0.9.4)
-- Added 36 comprehensive tests for `setup.sh` project initialization script
-- Tests cover: directory creation, subdirectory structure, template copying, git initialization
-- Template copying verification for PROMPT.md, fix_plan.md, AGENT.md
-- Git repository validation: .git exists, valid repo, initial commit, correct message
-- README.md creation and content verification
-- Custom and default project name handling
-- Working directory behavior (nested directories, relative paths)
-- Error handling: missing templates, missing PROMPT.md
-- Output message validation (startup, completion, next steps)
-- Edge cases: spaces in names, existing directories
-- Test count: 201 (up from 165)
-
-### Installation Tests (v0.9.3)
-- Added 14 comprehensive tests for `install.sh` global installation script
-- Tests cover: directory creation, command installation, template copying, lib copying
-- Dependency detection tests (jq, git, node) with mocked failures
-- PATH detection and warning system tests
-- Uninstallation cleanup verification
-- Idempotency testing (run twice without errors)
-- End-to-end installation workflow validation
-- All tests use isolated temp directories (no system modifications)
-- Test count: 165 (up from 151)
-
-### Prompt File Fix (v0.9.2)
-- Fixed critical bug: replaced non-existent `--prompt-file` CLI flag with `-p` flag
-- Modern CLI mode now correctly passes prompt content via `CLAUDE_CMD_ARGS+=("-p" "$prompt_content")`
-- Added error handling for missing prompt files in `build_claude_command()`
-- Added 6 new TDD tests for `build_claude_command` function
-- Maintains shell injection safety through array-based command building
-- Test count: 151 (up from 145)
-
-### CLI Parsing Tests (v0.9.1)
-- Added 27 comprehensive CLI argument parsing tests
-- Covers all 12 CLI flags with both long and short forms
-- Boundary value testing for `--timeout` (0, 1, 120, 121)
-- Invalid input handling and error message validation
-- Code review report: `docs/code-review/2026-01-08-cli-parsing-tests-review.md`
-
-### CI/CD Pipeline (v0.9.1)
-- Added GitHub Actions workflow for automated testing
-- kcov coverage measurement (informational only due to subprocess limitations)
-- Coverage artifacts uploaded for debugging
-- Codecov integration (optional)
-
-### Modern CLI Commands (v0.9.1 - Phase 1.1)
-
-**JSON Output Format Support**
-- Added `detect_output_format()` function to identify JSON vs text output
-- Added `parse_json_response()` to extract structured fields from Claude's JSON output
-- Extracts: status, exit_signal, work_type, files_modified, error_count, summary
-- Automatic fallback to text parsing on malformed JSON
-- Maintains backward compatibility with traditional RALPH_STATUS format
-
-**Session Continuity Management**
-- `init_claude_session()` - Resume or start new sessions
-- `save_claude_session()` - Persist session ID from Claude output
-- `--continue` flag for context preservation across loops
-- `--no-continue` option for isolated iterations
-
-**Loop Context Injection**
-- `build_loop_context()` - Build contextual information for each loop
-- Includes: loop number, remaining tasks, circuit breaker state, previous work summary
-- Injected via `--append-system-prompt` for Claude awareness
-
-**Modern CLI Flags**
-- `--output-format json|text` - Control Claude output format
-- `--allowed-tools` - Restrict tool permissions
-- `-p` with content - Pass prompt content (reads from file via command substitution)
-- Version checking with `check_claude_version()`
-
-### Circuit Breaker Enhancements (v0.9.0)
-
-**Multi-line Error Matching Fix**
-- Fixed critical bug in `detect_stuck_loop` function where only the first error line was checked when multiple distinct errors occurred
-- Now verifies ALL error lines appear in ALL recent history files for accurate stuck loop detection
-- Uses nested loop checking with `grep -qF` for literal fixed-string matching
-
-**JSON Field False Positive Elimination**
-- Implemented two-stage error filtering to avoid counting JSON field names as errors
-- Stage 1 filters out patterns like `"is_error": false` that contain "error" as a field name
-- Stage 2 detects actual error messages in specific contexts
-- Aligned patterns between `response_analyzer.sh` and `ralph_loop.sh` for consistent behavior
-
-### Installation Improvements
-- Added `lib/` directory to installation process for modular architecture
-- Fixed issue where `response_analyzer.sh` and `circuit_breaker.sh` were not being copied during global installation
-- All library components now properly installed to `~/.ralph/lib/`
 
 ## Feature Development Quality Standards
 
